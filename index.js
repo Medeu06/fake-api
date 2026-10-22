@@ -208,4 +208,5 @@ function App() {
 }
 
 // Рендерим компонент в HTML
-ReactDOM.render(<App />, document.getElementById('root'));
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
