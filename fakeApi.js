@@ -1,78 +1,177 @@
-const STORAGE_KEY = 'items_app_data';
+import { API_CONFIG, DATA_KEY } from "./settings.js";
+import { initialDataSample } from "./initial-data-sample.js";
 
-const initialItems = [
-  {
-    id: '1',
-    title: 'MacBook Pro 16',
-    description: 'Мощный ноутбук для разработки и работы с графикой.',
-    category: 'Электроника',
-    price: 2400,
-    status: 'available',
-    rating: 4.9,
-    createdAt: '2026-01-15'
-  },
-  {
-    id: '2',
-    title: 'Механическая клавиатура',
-    description: 'Беспроводная клавиатура с Gateron Yellow переключателями.',
-    category: 'Периферия',
-    price: 120,
-    status: 'available',
-    rating: 4.7,
-    createdAt: '2026-02-10'
+function fakeRequest(operation, options = {}) {
+  const {
+    minDelay = API_CONFIG.minDelay,
+    maxDelay = API_CONFIG.maxDelay,
+    errorChance = API_CONFIG.errorChance,
+  } = options;
+
+  return new Promise((resolve, reject) => {
+    const delayMS =
+      Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
+
+    setTimeout(() => {
+      if (Math.random() < errorChance) {
+        reject(new Error("Simulated server Error"));
+        return;
+      }
+
+      try {
+        resolve(operation());
+      } catch (error) {
+        reject(error);
+      }
+    }, delayMS);
+  });
+}
+
+function initializeDatabase() {
+  if (!localStorage.getItem(DATA_KEY)) {
+    localStorage.setItem(DATA_KEY, JSON.stringify(initialDataSample));
   }
-];
+}
 
-const getStored = () => {
-  const data = localStorage.getItem(STORAGE_KEY);
-  if (!data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(initialItems));
-    return initialItems;
-  }
-  return JSON.parse(data);
-};
+function readData() {
+  return JSON.parse(localStorage.getItem(DATA_KEY) || "[]");
+}
 
-const saveStored = (data) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-};
+function writeData(items) {
+  localStorage.setItem(DATA_KEY, JSON.stringify(items));
+}
 
-const delay = (ms = 600) => new Promise((resolve) => setTimeout(resolve, ms));
+initializeDatabase();
 
-window.fakeApi = {
-  getItems: async () => {
-    await delay(500);
-    return getStored().map(({ id, title, price, status }) => ({ id, title, price, status }));
-  },
+export async function getItemsList(query = "") {
+  return fakeRequest(() => {
+    const params = new URLSearchParams(query);
+    const search = params.get("search");
+    const sort = params.get("sort") || "name";
+    const page = Number(params.get("page")) || 1;
+    const limit = Number(params.get("limit")) || 10;
 
-  getItemById: async (id) => {
-    await delay(800);
-    const item = getStored().find((i) => i.id === id);
-    if (!item) throw new Error('Элемент не найден');
+    let items = readData();
+
+    // search by name and description
+    if (search) {
+      items = items.filter(
+        (item) =>
+          item.name.toLowerCase().includes(search.toLowerCase()) ||
+          item.description.toLowerCase().includes(search.toLowerCase()),
+      );
+    }
+    //add other filter fields here
+    //...
+    //
+
+    // SORT by name
+    items = [...items].sort((a, b) => {
+      switch (sort) {
+        case "name-desc":
+          return b.name.localeCompare(a.name);
+
+        case "name":
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+
+    // PAGINATION
+    const total = items.length;
+    const totalPages = Math.ceil(total / limit);
+    const start = (page - 1) * limit;
+
+    const data = items.slice(start, start + limit);
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages,
+    };
+  });
+}
+
+export async function getItem(id) {
+  return fakeRequest(() => {
+    const items = readData();
+
+    const item = items.find((item) => item.id === Number(id));
+
+    if (!item) {
+      throw new Error("Item not found");
+    }
+
     return item;
-  },
+  });
+}
 
-  createItem: async (data) => {
-    await delay(500);
-    const items = getStored();
-    const newItem = { ...data, id: Date.now().toString(), createdAt: new Date().toISOString().split('T')[0] };
-    items.push(newItem);
-    saveStored(items);
+export async function createItem(data) {
+  return fakeRequest(() => {
+    const items = readData();
+
+    const nextId =
+      items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
+
+    const newItem = {
+      id: nextId,
+      name: data.name,
+      description: data.description,
+    };
+
+    writeData([...items, newItem]);
+
     return newItem;
-  },
+  });
+}
 
-  updateItem: async (id, fields) => {
-    await delay(500);
-    const items = getStored();
-    const index = items.findIndex((i) => i.id === id);
-    if (index === -1) throw new Error('Не найден');
-    items[index] = { ...items[index], ...fields };
-    saveStored(items);
-    return items[index];
-  },
+export async function updateItem(id, changes) {
+  return fakeRequest(() => {
+    const numericId = Number(id);
+    const items = readData();
 
-  deleteItem: async (id) => {
-    await delay(400);
-    saveStored(getStored().filter((i) => i.id !== id));
-    return true;
-  }
-};
+    const exists = items.some((item) => item.id === numericId);
+
+    if (!exists) {
+      throw new Error("Item not found");
+    }
+
+    const updatedItems = items.map((item) =>
+      item.id === numericId
+        ? {
+            ...item,
+            ...changes,
+            id: numericId,
+          }
+        : item,
+    );
+
+    writeData(updatedItems);
+
+    return updatedItems.find((item) => item.id === numericId);
+  });
+}
+
+export async function deleteItem(id) {
+  return fakeRequest(() => {
+    const numericId = Number(id);
+    const items = readData();
+
+    const exists = items.some((item) => item.id === numericId);
+
+    if (!exists) {
+      throw new Error("Item not found");
+    }
+
+    const updatedItems = items.filter((item) => item.id !== numericId);
+
+    writeData(updatedItems);
+
+    return {
+      success: true,
+      id: numericId,
+    };
+  });
+}
