@@ -1,13 +1,23 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Fake API</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Items App (Async React & Effects)</title>
+  
+  <!-- Подключение React 18, ReactDOM и Babel для работы JSX в браузере -->
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Подключение фейкового API -->
+  <script src="./fakeApi.js"></script>
 </head>
 <body>
-<h1>Look for fake API in index.js</h1>
-<button id="demos">Get Fakes button</button>
-</body>
-<script src="./index.js" type="module"></script>
+  <!-- Контейнер, куда React монтирует приложение -->
+  <div id="root"></div>
 
+  <!-- Подключение основного скрипта React с типом text/babel -->
+  <script type="text/babel" src="./index.js"></script>
+</body>
 </html>
