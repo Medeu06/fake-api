@@ -48,48 +48,30 @@ export async function getItemsList(query = "") {
     const params = new URLSearchParams(query);
     const search = params.get("search");
     const sort = params.get("sort") || "name";
-    const page = Number(params.get("page")) || 1;
-    const limit = Number(params.get("limit")) || 10;
 
     let items = readData();
 
-    // search by name and description
     if (search) {
       items = items.filter(
         (item) =>
           item.name.toLowerCase().includes(search.toLowerCase()) ||
-          item.description.toLowerCase().includes(search.toLowerCase()),
+          item.description.toLowerCase().includes(search.toLowerCase())
       );
     }
-    //add other filter fields here
-    //...
-    //
 
-    // SORT by name
     items = [...items].sort((a, b) => {
       switch (sort) {
         case "name-desc":
           return b.name.localeCompare(a.name);
-
         case "name":
         default:
           return a.name.localeCompare(b.name);
       }
     });
 
-    // PAGINATION
-    const total = items.length;
-    const totalPages = Math.ceil(total / limit);
-    const start = (page - 1) * limit;
-
-    const data = items.slice(start, start + limit);
-
     return {
-      data,
-      total,
-      page,
-      limit,
-      totalPages,
+      data: items,
+      total: items.length,
     };
   });
 }
@@ -97,7 +79,6 @@ export async function getItemsList(query = "") {
 export async function getItem(id) {
   return fakeRequest(() => {
     const items = readData();
-
     const item = items.find((item) => item.id === Number(id));
 
     if (!item) {
@@ -111,18 +92,21 @@ export async function getItem(id) {
 export async function createItem(data) {
   return fakeRequest(() => {
     const items = readData();
-
     const nextId =
       items.length > 0 ? Math.max(...items.map((item) => item.id)) + 1 : 1;
 
     const newItem = {
       id: nextId,
-      name: data.name,
-      description: data.description,
+      name: data.name || "Unnamed",
+      description: data.description || "",
+      role: data.role || "Member",
+      status: data.status || "Available",
+      level: Number(data.level) || 1,
+      email: data.email || "user@example.com",
+      active: data.active !== undefined ? Boolean(data.active) : true,
     };
 
     writeData([...items, newItem]);
-
     return newItem;
   });
 }
@@ -133,7 +117,6 @@ export async function updateItem(id, changes) {
     const items = readData();
 
     const exists = items.some((item) => item.id === numericId);
-
     if (!exists) {
       throw new Error("Item not found");
     }
@@ -145,11 +128,10 @@ export async function updateItem(id, changes) {
             ...changes,
             id: numericId,
           }
-        : item,
+        : item
     );
 
     writeData(updatedItems);
-
     return updatedItems.find((item) => item.id === numericId);
   });
 }
@@ -160,18 +142,13 @@ export async function deleteItem(id) {
     const items = readData();
 
     const exists = items.some((item) => item.id === numericId);
-
     if (!exists) {
       throw new Error("Item not found");
     }
 
     const updatedItems = items.filter((item) => item.id !== numericId);
-
     writeData(updatedItems);
 
-    return {
-      success: true,
-      id: numericId,
-    };
+    return { success: true, id: numericId };
   });
 }
